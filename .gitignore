@@ -1,0 +1,32 @@
+# ---- 构建产物 ----
+build/
+*.o
+*.out
+*.a
+*.so
+
+# ---- 运行日志（保留目录，忽略内容）----
+gateway/logs/*.log
+gateway/logs/*.log.*
+
+# ---- 部署与临时产物 ----
+bin/
+*.arm
+*.tmp
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# ---- 编辑器与操作系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- 本地机器相关（可能含凭据，绝不入库）----
+*.local.conf
+scripts/local.env
