@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # EdgeLink —— 基于 i.MX6ULL 的轻量级物联网平台
 
 边缘网关 + 网页管理端的轻量级物联网系统。开发板运行网关核心（C++），Windows 侧运行设备模拟与测试工具（Python），浏览器运行管理页面。
@@ -55,3 +56,7 @@ REPO_DIR=/mnt/hgfs/demo1 ./scripts/build.sh
 - **一个功能一个文件夹**：`gateway/src/<功能>/`、`pc/<功能>/`，功能文件夹在实现该功能时创建，不预先建空目录。
 - 三端共享的协议定义统一放 `protocol/`，**不要**在各端重复定义一份。
 - 凭据（开发板密码、token）不写入仓库，用环境变量或本地文件（已在 `.gitignore` 中排除）。
+=======
+# My_linux_project
+A Linux study record of a 29th-grade college student
+>>>>>>> 887e733e8228579bc729a4dded3169846d97e3f4
