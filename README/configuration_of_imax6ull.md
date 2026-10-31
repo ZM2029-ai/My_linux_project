@@ -179,7 +179,7 @@ deb [arch=armhf] https://cloud.embedfire.com/mirrors/ebf-debian carp-imx6 main
 
 - 阶段三 MQTT：Broker 用板上 `apt install mosquitto`（1.5.7）即可；客户端库用 `libmosquitto-dev`（1.5.7，C API，C++ 中可直接调用），无需为 MQTT 引入高版本工具链依赖。
 - 阶段四 SQLite：板上已装 `libsqlite3-0` 3.27.2，开发用 `apt install libsqlite3-dev`；交叉编译时使用同版本头文件与库。
-- 阶段二音频/ALSA：待阶段二开始时再查（按计划推迟）。
+- 阶段二音频/ALSA：已识别 WM8960 和 ALSA 运行库，详见下方阶段二记录；解码库及交叉编译依赖仍需验证。
 - 阶段一最小 C++ 程序：用 GCC 8.3 交叉工具链编译，`scp` 到 `/home/debian` 下运行；若出现运行库版本问题，可临时在板上装 g++ 8.3 本地编译作为对照。
 
 ---
@@ -200,8 +200,19 @@ deb [arch=armhf] https://cloud.embedfire.com/mirrors/ebf-debian carp-imx6 main
 
 ### 按计划推迟
 
-- 声卡与音频输出相关检查（ALSA、WM8960、耳机接口）留到阶段二
+- 音频流式解码、交叉编译依赖及播放参数留到阶段二继续验证
 - Mosquitto 部署方式已定为板上 `apt install`（见「分阶段组件部署结论」），仅客户端库的具体调用细节留到阶段三
 - 公网隧道相关配置在阶段六确定
+
+## 阶段二音频环境检查
+
+2026-10-30 通过 SSH 只读查询：
+
+- `/proc/asound/cards` 显示声卡 0：`wm8960audio`（WM8960）。`aplay -l` 显示播放设备 0（`wm8960-hifi-0`）和设备 1（`HiFi-ASRC-FE`）。
+- `aplay -L` 列出 `default:CARD=wm8960audio`、`hw:CARD=wm8960audio,DEV=0`、`plughw:CARD=wm8960audio,DEV=0` 等设备；最终使用的设备和参数需实测。
+- 已安装 `libasound2:armhf` 1.1.8-1 和 `aplay`；`libasound2-dev` 未安装，apt 候选版本 1.1.8-1。
+- `libmpg123-0` / `libmpg123-dev` 未安装，apt 候选版本均为 1.25.10-2；`libmad0` / `libmad0-dev` 未安装，候选版本均为 0.15.1b-10。候选版本不等于已验证可以安装或适合本项目。
+- 用户已确认板上音频设备可用；本次查询未进行实际播放测试，也没有安装软件或修改板上配置。
+- 待调查：解码库的流式接口、ARM 开发头文件及链接库在 Debian 10 chroot 中的获取方式、PCM 格式和声道/采样率支持，以及实际播放时的 CPU 和缓冲表现。
 
 

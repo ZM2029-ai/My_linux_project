@@ -12,6 +12,9 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <cstdlib>
+#include <cerrno>
+#include "net/music_receiver.hpp"
 
 #ifndef EDGELINK_VERSION
 #define EDGELINK_VERSION "unknown"
@@ -62,10 +65,27 @@ void printBanner(const RuntimeInfo &info)
 
 }  // namespace
 
-int main()
+// 打印环境信息；指定音乐端口时启动接收服务，否则保留原有自检行为。
+int main(int argc, char **argv)
 {
     const RuntimeInfo info = queryRuntimeInfo();
     printBanner(info);
+
+    if (argc == 3 && std::string(argv[1]) == "--music-port") {
+        char *end = nullptr;
+        errno = 0;
+        // 检查完整输入和合法端口范围，避免截断或接受无效字符。
+        const long port = std::strtol(argv[2], &end, 10);
+        if (errno || end == argv[2] || *end || port < 1 || port > 65535) {
+            std::cerr << "Invalid port (1-65535)" << std::endl;
+            return 1;
+        }
+        return runMusicReceiver(static_cast<std::uint16_t>(port));
+    }
+    if (argc != 1) {
+        std::cerr << "Usage: edgelink [--music-port PORT]" << std::endl;
+        return 1;
+    }
 
     // 阶段一任务 5 完成后，这里改为：初始化日志 -> 读取配置 -> 写启动日志
     std::cout << "[骨架] 环境自检完成，日志模块与业务模块尚未接入。" << std::endl;
