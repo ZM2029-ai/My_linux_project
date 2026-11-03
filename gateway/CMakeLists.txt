@@ -25,6 +25,20 @@ target_compile_definitions(edgelink PRIVATE
 # -O2/-g 由构建类型决定，这里只加警告
 target_compile_options(edgelink PRIVATE -Wall -Wextra)
 
+option(EDGELINK_ENABLE_MQTT "构建 MQTT 接收功能" OFF)
+if(EDGELINK_ENABLE_MQTT)
+    find_package(Threads REQUIRED)
+    find_path(MOSQUITTO_INCLUDE_DIR mosquitto.h PATHS /usr/include NO_DEFAULT_PATH)
+    find_library(MOSQUITTO_LIBRARY mosquitto PATHS /usr/lib/arm-linux-gnueabihf NO_DEFAULT_PATH)
+    if(NOT MOSQUITTO_INCLUDE_DIR OR NOT MOSQUITTO_LIBRARY)
+        message(FATAL_ERROR "找不到 armhf libmosquitto 开发文件")
+    endif()
+    target_sources(edgelink PRIVATE src/mqtt/mqtt_client.cpp)
+    target_include_directories(edgelink PRIVATE ${MOSQUITTO_INCLUDE_DIR})
+    target_link_libraries(edgelink PRIVATE ${MOSQUITTO_LIBRARY} Threads::Threads)
+    target_compile_definitions(edgelink PRIVATE EDGELINK_ENABLE_MQTT)
+endif()
+
 # 网关播放功能依赖目标板架构的音频开发库。
     # Debian multiarch 中明确选择目标板的 armhf 库，避免误用宿主库。
     find_path(MPG123_INCLUDE_DIR mpg123.h PATHS /usr/include/arm-linux-gnueabihf /usr/include NO_DEFAULT_PATH)

@@ -8,8 +8,8 @@
 
 | 文件/目录 | 对应阶段 | 内容 |
 | --- | --- | --- |
-| `mqtt-topics.md` | 阶段三 | MQTT 主题命名、QoS、载荷 JSON 字段定义 |
-| `device-telemetry.md` | 阶段三/四 | 遥测数据字段、类型、单位、时间格式 |
+| [mqtt-topics.md](mqtt-topics.md) | 阶段三 | MQTT 主题命名、QoS 和消息方向 |
+| [device-telemetry.md](device-telemetry.md) | 阶段三/四 | 遥测数据字段、类型、单位、时间格式 |
 | `control-command.md` | 阶段六 | 控制命令参数、命令 ID、响应与超时约定 |
 | `music-stream.md` | 阶段二 | TCP 音乐流的分帧格式（长度/序号/采样参数） |
 | `http-api.md` | 阶段五 | REST 接口路径、请求参数、响应结构、错误码 |
@@ -32,4 +32,4 @@ edgelink/device/{device_id}/response
 
 ## 当前状态
 
-本目录只有本说明，具体定义在各阶段实现前补写。
+阶段三的主题、遥测和状态定义已初步编写；控制命令和响应的具体协议留待阶段六细化。

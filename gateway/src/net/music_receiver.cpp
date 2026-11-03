@@ -11,7 +11,7 @@
 #include <cstring>
 #include <iostream>
 
-namespace {
+namespace {//namespace将下面的函数私有化，内部链接
 // 循环接收指定字节数，处理 TCP 分段和被信号中断的系统调用。
 // 连接关闭或接收失败时返回 false。
 bool readExact(int fd, void *buffer, std::size_t size)
@@ -19,7 +19,7 @@ bool readExact(int fd, void *buffer, std::size_t size)
     auto *p = static_cast<unsigned char *>(buffer);
     while (size) {
         const auto n = recv(fd, p, size, 0);
-        if (n < 0 && errno == EINTR) continue;
+        if (n < 0 && errno == EINTR) continue;//errno == EINTR表示系统调用被信号中断，继续接收。类似错误处理机制
         if (n <= 0) return false;
         p += n;
         size -= static_cast<std::size_t>(n);
@@ -27,7 +27,7 @@ bool readExact(int fd, void *buffer, std::size_t size)
     return true;
 }
 
-// 按协议发送 RESULT，处理一次 send 未写完全部字节的情况。
+// 按协议发送 RESULT，处理一次 send 未写完全部字节的情况。处理readExact()中提到的TCP分段问题，确保发送完整的消息。对端已断开时避免 SIGPIPE 终止整个网关。
 void result(int fd, unsigned char status)
 {
     const unsigned char msg[] = {'E','L','M','S',2,4,0,1,status};

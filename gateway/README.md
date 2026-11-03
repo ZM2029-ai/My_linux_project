@@ -21,6 +21,14 @@
 REPO_DIR=/mnt/hgfs/demo1 ./scripts/build.sh
 ```
 
+阶段三 MQTT 接收功能需要 chroot 中的 `libmosquitto-dev:armhf`，可通过以下方式启用（默认关闭，保留现有音乐构建）：
+
+```bash
+REPO_DIR=/mnt/hgfs/demo1 ENABLE_MQTT=ON ./scripts/build.sh
+```
+
+部署后，开发板上运行 `./edgelink --mqtt-host 127.0.0.1`，也可在地址后指定端口。网关订阅遥测和状态主题，输出设备 ID、消息类型和原始载荷；Ctrl+C 停止。网关断线后每 3 秒尝试重连并重新订阅。当前仅提供局域网测试用的无认证连接；尚不解析或持久化 JSON，也不代表已完成整条链路的板端验证。音乐仍使用原有 `--music-port PORT` 独立运行。
+
 构建脚本做的事：bind mount 源码/构建目录 → chroot 内 `cmake` + `cmake --build` → 取回产物并显示符号版本自检。
 
 ## 手动构建（不经脚本）
