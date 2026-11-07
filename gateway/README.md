@@ -21,15 +21,43 @@
 REPO_DIR=/mnt/hgfs/demo1 ./scripts/build.sh
 ```
 
-阶段三 MQTT 接收功能需要 chroot 中的 `libmosquitto-dev:armhf`，可通过以下方式启用（默认关闭，保留现有音乐构建）：
+阶段三 MQTT 接收功能需要 chroot 中的 `libmosquitto-dev:armhf` 和 `nlohmann-json3-dev`，可通过以下方式启用（默认关闭）：
 
 ```bash
 REPO_DIR=/mnt/hgfs/demo1 ENABLE_MQTT=ON ./scripts/build.sh
 ```
 
-部署后，开发板上运行 `./edgelink --mqtt-host 127.0.0.1`，也可在地址后指定端口。网关订阅遥测和状态主题，输出设备 ID、消息类型和原始载荷；Ctrl+C 停止。网关断线后每 3 秒尝试重连并重新订阅。当前仅提供局域网测试用的无认证连接；尚不解析或持久化 JSON，也不代表已完成整条链路的板端验证。音乐仍使用原有 `--music-port PORT` 独立运行。
+部署后，开发板上运行 `./edgelink --mqtt-host 127.0.0.1`，也可在地址后指定端口。网关解析遥测和状态 JSON，维护设备状态与最新遥测，并在断线后重连、重新订阅。Ctrl+C 停止。独立 MQTT 构建、代码阅读顺序和手动运行步骤见 [MQTT 模块说明](src/mqtt/README.md)。当前代码尚未通过板端验收。音乐使用原有 `--music-port PORT` 运行。
 
 构建脚本做的事：bind mount 源码/构建目录 → chroot 内 `cmake` + `cmake --build` → 取回产物并显示符号版本自检。
+
+## 阶段四 SQLite 存储
+
+在 Debian 10 chroot 中准备 `libsqlite3-dev:armhf`，板端使用 `libsqlite3-0`。构建完整网关时，在虚拟机宿主机执行：
+
+```bash
+REPO_DIR=/mnt/hgfs/demo1 ENABLE_MQTT=ON ENABLE_SQLITE=ON ./scripts/build.sh
+```
+
+产物为 `~/edgelink-bin/edgelink` 和 `~/edgelink-bin/edgelink_db`，查询工具需要单独传到板上。使用手动 CMake 构建时，添加 `-DEDGELINK_ENABLE_SQLITE=ON`。也可搭配 `-DEDGELINK_MQTT_ONLY=ON` 构建独立 MQTT 网关及查询工具。单独检查存储层可使用 `-DEDGELINK_STORAGE_ONLY=ON -DEDGELINK_BUILD_STORAGE_CHECKS=ON`，本机原生构建后用 CTest 运行，ARM 检查程序在板上运行。
+
+在板上从部署目录启动网关，数据库应放在有写权限的本地目录。每个数据库由一个网关实例维护：
+
+```bash
+./edgelink --mqtt-host 127.0.0.1 1883 --db ./edgelink.sqlite3
+# 独立 MQTT 程序使用 ./edgelink_mqtt 127.0.0.1 1883 --db ./edgelink.sqlite3
+```
+
+网关首次打开数据库时建表，收到合法消息后自动注册设备。省略 `--db` 时使用阶段三的内存模式。在另一终端查询或更新同一个数据库：
+
+```bash
+./edgelink_db ./edgelink.sqlite3 list
+./edgelink_db ./edgelink.sqlite3 show sensor-01
+./edgelink_db ./edgelink.sqlite3 rename sensor-01 'Lab sensor'
+./edgelink_db ./edgelink.sqlite3 history sensor-01 '2026-11-06 00:00:00' '2026-11-07 00:00:00' 100
+```
+
+历史按北京时间的采样时间过滤，含开始时间，到结束时间之前截止。查询默认返回 100 条，上限 1000 条，同秒记录按写入顺序排列。重启保留设备资料、遥测和操作记录，当前在线状态由本次会话重新确认。写入失败会记录原因，失败的遥测样本会丢失。网关会继续处理后续上报，并重试同步已注册设备的当前状态。
 
 ## 手动构建（不经脚本）
 

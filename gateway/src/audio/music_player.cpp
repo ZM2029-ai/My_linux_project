@@ -1,11 +1,11 @@
 #include "music_player.hpp"
-#include <alsa/asoundlib.h>
-#include <mpg123.h>
+#include <alsa/asoundlib.h>//ALSA库，这里用于PCM到声卡硬件
+#include <mpg123.h>//用于音频解码的库
 
 // 保存单条流的资源和状态，避免向调用方暴露第三方库类型。
 struct MusicPlayer::Impl {
-    mpg123_handle *decoder = nullptr;
-    snd_pcm_t *pcm = nullptr;
+    mpg123_handle *decoder = nullptr;//mpg123_handle是mpg123库中用于解码的句柄类型
+    snd_pcm_t *pcm = nullptr;//snd_pcm_t是ALSA库中用于PCM设备的句柄类型
     bool initialized = false, configured = false, decoded = false, failed = false;
     int channels = 0;
     std::string message;
@@ -16,7 +16,7 @@ struct MusicPlayer::Impl {
     // 处理 ALSA 部分写入及欠载恢复。
     bool write(const unsigned char *data, size_t bytes) {
         const size_t frameBytes = static_cast<size_t>(channels) * 2;
-        if (bytes % frameBytes) return fail("PCM frame is incomplete");
+        if (bytes % frameBytes) return fail("PCM frame is incomplete");//fail记录错误信息并返回false
         snd_pcm_uframes_t frames = bytes / frameBytes;
         while (frames) {
             const snd_pcm_sframes_t n = snd_pcm_writei(pcm, data, frames);
@@ -29,10 +29,10 @@ struct MusicPlayer::Impl {
         return true;
     }
 
-    // 消费已输入的数据；根据解码器格式配置 ALSA。
+    // 消费已输入的数据；根据解码器格式配置 ALSA。对象的方法
     bool decode() {
         unsigned char output[16384];
-        for (;;) {
+        for (;;) {//无限循环
             size_t done = 0;
             const int rc = mpg123_read(decoder, output, sizeof(output), &done);
             if (rc == MPG123_NEW_FORMAT) {
@@ -60,7 +60,7 @@ struct MusicPlayer::Impl {
     }
 };
 
-// 构造空播放器；资源由 open 显式获取。
+// 构造空播放器；资源由 open 显式获取。准备好内核状态，相当于创建了一个空的播放器对象
 MusicPlayer::MusicPlayer() : impl_(new Impl) {}
 // 销毁时中止尚未结束的播放并释放资源。
 MusicPlayer::~MusicPlayer() { close(); }

@@ -14,10 +14,9 @@
 #include <thread>
 #include <cstdlib>
 #include <cerrno>
-#include <csignal>
 #include "net/music_receiver.hpp"
 #ifdef EDGELINK_ENABLE_MQTT
-#include "mqtt/mqtt_client.hpp"
+#include "mqtt/mqtt_gateway.hpp"
 #endif
 
 #ifndef EDGELINK_VERSION
@@ -25,11 +24,6 @@
 #endif
 
 namespace {
-
-#ifdef EDGELINK_ENABLE_MQTT
-volatile std::sig_atomic_t stopRequested = 0;
-void requestStop(int) { stopRequested = 1; }
-#endif
 
 struct RuntimeInfo {
     std::string arch;      // CPU 架构，例如 armv7l
@@ -92,30 +86,14 @@ int main(int argc, char **argv)
         return runMusicReceiver(static_cast<std::uint16_t>(port));
     }
 #ifdef EDGELINK_ENABLE_MQTT
-    if ((argc == 3 || argc == 4) && std::string(argv[1]) == "--mqtt-host") {
-        long port = 1883;
-        if (argc == 4) {
-            char *end = nullptr;
-            errno = 0;
-            port = std::strtol(argv[3], &end, 10);
-            if (errno || end == argv[3] || *end || port < 1 || port > 65535) {
-                std::cerr << "Invalid MQTT port (1-65535)" << std::endl;
-                return 1;
-            }
-        }
-        std::signal(SIGINT, requestStop);
-        std::signal(SIGTERM, requestStop);
-        return runMqttClient(argv[2], static_cast<int>(port),
-            [](const MqttMessage &message) {
-                std::cout << "[mqtt] device=" << message.device_id << " type=" << message.kind
-                          << " payload=" << message.payload << std::endl;
-            }, [] { return stopRequested != 0; });
+    if (argc > 1 && std::string(argv[1]) == "--mqtt-host") {
+        return runMqttGatewayCommand(argc - 2, argv + 2);
     }
 #endif
     if (argc != 1) {
         std::cerr << "Usage: edgelink [--music-port PORT]"
 #ifdef EDGELINK_ENABLE_MQTT
-                  << " or edgelink --mqtt-host HOST [PORT]"
+                  << " or edgelink --mqtt-host HOST [PORT] [--db PATH]"
 #endif
                   << std::endl;
         return 1;

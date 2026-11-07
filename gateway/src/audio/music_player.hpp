@@ -1,11 +1,11 @@
-#pragma once
+#pragma once //其实就是#ifndef/#define/#endif的简写，防止头文件被重复包含
 #include <cstddef>
 #include <memory>
 #include <string>
 
 // 一个实例负责一条 MP3 流；调用方需串行调用各方法。
 class MusicPlayer {
-public:
+public://对外接口
     MusicPlayer();
     ~MusicPlayer();
     MusicPlayer(const MusicPlayer &) = delete;
@@ -21,5 +21,5 @@ public:
     const std::string &error() const;
 private:
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl_;//智能指针，管理Impl对象的生命周期
 };

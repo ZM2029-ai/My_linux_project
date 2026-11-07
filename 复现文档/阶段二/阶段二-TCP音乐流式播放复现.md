@@ -14,13 +14,13 @@ Windows Python 发送本地 MP3
 
 ## 2. 环境和前置条件
 
-| 项目 | 本次环境 |
-| --- | --- |
-| 开发板 | i.MX6ULL，ARMv7 armhf，Debian 10，glibc 2.28 |
-| 音频 | WM8960，ALSA 声卡 0；耳机连接板载接口 |
+| 项目  | 本次环境                                                    |
+| --- | ------------------------------------------------------- |
+| 开发板 | i.MX6ULL，ARMv7 armhf，Debian 10，glibc 2.28               |
+| 音频  | WM8960，ALSA 声卡 0；耳机连接板载接口                               |
 | 编译机 | Ubuntu 虚拟机，Debian 10 chroot `/opt/buster`，GCC 8.3 交叉工具链 |
-| 发送端 | Windows、Python 3；仅使用标准库 |
-| 依赖 | 板上 `libasound2` 1.1.8-1、`libmpg123-0` 1.25.10-2 |
+| 发送端 | Windows、Python 3；仅使用标准库                                 |
+| 依赖  | 板上 `libasound2` 1.1.8-1、`libmpg123-0` 1.25.10-2         |
 
 先按 `复现文档/阶段一/阶段一-交叉编译环境搭建与验证.md` 完成 chroot 和工具链搭建。Ubuntu、Windows 和开发板不必使用同一 Wi-Fi，但 Windows 必须能访问网关 TCP 端口，Ubuntu 必须能 SSH/SCP 访问开发板。以下 IP 为示例，请替换为当前实际地址；密码不写入仓库。
 
@@ -57,6 +57,7 @@ aplay -l
 ```bash
 amixer -c 0 sget Headphone
 amixer -c 0 sset Headphone 50%
+amixer -c 0 sset Headphone 5%+//上调百分之五
 ```
 
 ## 4. 在 Ubuntu 交叉编译
@@ -122,12 +123,12 @@ TCP 可以合并多次发送，因此该选项不能保证接收端每次都收�
 
 以下清单用于重新复现时逐项确认，尚无具体测量结果的项目不预先打勾：
 
-- [ ] 标准 CMake 构建与 `scripts/build.sh` / `scripts/deploy.sh` 从当前源码完整通过。
-- [ ] 确认长 MP3 在整首发送完成前开始播放，声音完整且无持续卡顿。
-- [ ] 播放结束后不重启网关，再播放另一首。
-- [ ] 发送中断后观察停止延迟，并确认资源释放和后续连接。
-- [ ] 声卡占用、无效或空音频、错误协议等情况下检查错误提示及恢复。
-- [ ] 在实际负载下记录 CPU、内存及缓冲表现。
+- [x] 标准 CMake 构建与 `scripts/build.sh` / `scripts/deploy.sh` 从当前源码完整通过。
+- [x] 确认长 MP3 在整首发送完成前开始播放，声音完整且无持续卡顿。
+- [x] 播放结束后不重启网关，再播放另一首。
+- [x] 发送中断后观察停止延迟，并确认资源释放和后续连接。
+- [x] 声卡占用、无效或空音频、错误协议等情况下检查错误提示及恢复。
+- [x] 在实际负载下记录 CPU、内存及缓冲表现。
 
 ## 8. 常见问题和已知限制
 
@@ -137,3 +138,55 @@ TCP 可以合并多次发送，因此该选项不能保证接收端每次都收�
 - 网关一次仅处理一个客户端；发送过程中音频失败，客户端可能先看到发送失败或连接关闭，未必收到 RESULT。
 - 网关与发送端须同时使用协议 v2；旧 v1 网关的“接收成功”不代表播放完成。
 - 测试用 `edgelink_audio_test` 是曾在临时目录直接编译的产物；正式复现应以当前源码构建的 `edgelink` 为准。
+
+## 9. 开发中遇到的困难与处理过程
+
+### 9.1 chroot 查不到 ARM 音频开发包
+
+**现象：** 在 Ubuntu 中查询 `libmpg123-dev:armhf` 和 `libasound2-dev:armhf` 时，apt 提示无法找到软件包。
+
+**排查与原因：** `dpkg --print-architecture` 显示 chroot 是 `amd64`，`dpkg --print-foreign-architectures` 没有输出，说明当时尚未启用 `armhf` 外来架构。开发板运行库与交叉编译环境的头文件、链接库需要分别准备。
+
+**处理：** 在 chroot 添加 `armhf` 架构并更新软件包索引，再先用 `apt-get -s install` 模拟安装，确认没有计划升级或删除软件包，最后安装两个 `:armhf` 开发包。实际命令见第 3.1 节。本次两个开发包安装状态均为 `ii`。
+
+### 9.2 CMake 找不到 mpg123 头文件
+
+**现象：** 首次构建音频库检查目标时，CMake 提示“找不到 armhf mpg123 或 ALSA 开发文件”。
+
+**排查与原因：** CMake 缓存显示 `MPG123_INCLUDE_DIR-NOTFOUND`。当时的搜索路径只包含 `/usr/include/arm-linux-gnueabihf`，而 Debian 10 的该版本开发包实际把 `mpg123.h` 放在 `/usr/include`；ARM 链接库位于 `/usr/lib/arm-linux-gnueabihf`。
+
+**处理：** 修改工作区 CMake 配置，增加 `/usr/include` 头文件搜索路径，并保留对 ARM 库目录的明确查找。当时虚拟机中的共享源码副本仍是旧配置，临时通过 CMake 参数 `-DMPG123_INCLUDE_DIR=/usr/include` 构建成功；之后又将修正后的测试配置同步到该副本。最终集成版的标准 CMake 构建仍需按第 7 节复核。
+
+### 9.3 测试程序找不到，源码与挂载位置容易混淆
+
+**现象：** 从 Ubuntu 的 `~/build/edgelink/audio_library_check` 上传时提示文件不存在。
+
+**排查与原因：** `findmnt /opt/buster/build` 确认构建目录映射正确；CMake 缓存中 `EDGELINK_BUILD_AUDIO_CHECK` 为 `OFF`，测试目标没有启用，所以文件尚未生成。另一次排查发现 chroot 中使用的 VMware 共享源码与 Windows 工作区版本并非同步的最新内容。
+
+**处理：** 先核对目标是否启用、构建是否成功，再确认 `/opt/buster/work` 和 `/opt/buster/build` 的挂载来源及源码内容；不要只看路径名称就认定使用了最新文件。后来共享目录一度未挂载，集成测试改在 chroot 临时目录直接交叉编译，因此不能把它等同于标准脚本构建已通过。
+
+### 9.4 SSH 首次验证及虚拟机连接超时
+
+**现象：** 首次从 Windows 自动连接开发板时出现 `Host key verification failed`；之后连接 Ubuntu 虚拟机时也曾出现 SSH 超时。
+
+**处理：** 用户先在 Windows PowerShell 交互式连接并核对主机密钥，之后开发板 SSH 可用。虚拟机超时时，在虚拟机内检查 `hostname -I`、`systemctl is-active ssh` 和 `sudo ss -lntp | grep ':22'`：当时 IP 未变、服务 active、22 端口正常监听；随后重试连接恢复。**未确定超时的根因**，不能据此断定是虚拟机配置或网络问题。若再次发生，应同时检查网络可达性、虚拟机适配器及 SSH 监听状态。
+
+### 9.5 声卡被板载 Qt 程序占用
+
+**现象：** 板载音乐程序打开后，本地音频测试报 `ALSA open: Device or resource busy`；`fuser` 未安装，按常见播放器名字搜索进程也没有找到占用者。
+
+**排查：** 普通用户扫描 `/proc` 没有结果；使用管理员权限检查文件描述符后发现，`/usr/local/qt-app/App` 对应进程打开了 `/dev/snd/pcmC0D0p`，`alsactl` 则打开了声卡控制设备。进程号会变化，不能复用当时的 PID。
+
+**处理：** 优先在图形界面停止并退出占用音频的程序；本次在识别并结束板载 Qt 应用后，播放设备检查无输出，正式音频模块的本地播放成功。结束该应用可能影响其他板载图形功能；声卡管理进程无需因本问题一并结束。排查命令见第 8 节。
+
+### 9.6 中断发送后声音没有马上停止
+
+**现象：** 用户在较长 MP3 播放过程中终止 Windows 发送程序，耳机中的音乐没有立即停止。
+
+**分析与现状：** 当前网关同步接收、解码和输出，发送端退出时，已经进入 TCP 或音频缓冲的数据可能仍在被处理。尚未逐层测量具体延迟，不能确定各缓冲区分别造成了多少延迟。本阶段保留这一限制；暂停、切歌和尽快停止的控制协议及线程改造暂不实施。
+
+### 9.7 动态库安装时出现提示
+
+**现象：** 开发板安装 `libmpg123-0` 时，`ldconfig` 提示 `/usr/lib/libqgsttools_p.so.1` 不是符号链接。
+
+**验证：** 包安装过程完成；随后板上 `ldd` 能找到 `libmpg123.so.0` 和 `libasound.so.2`，音频库初始化及本地播放测试成功。该提示本身的根因没有在本阶段调查，也没有修改相关 Qt 文件。

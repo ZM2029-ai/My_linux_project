@@ -19,6 +19,10 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
 set(CMAKE_C_COMPILER   /usr/bin/arm-linux-gnueabihf-gcc-8)
 set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabihf-g++-8)
 
+# CMake 3.13 可能无法从带 -8 后缀的编译器推断交叉归档工具。
+set(CMAKE_AR           /usr/bin/arm-linux-gnueabihf-ar)
+set(CMAKE_RANLIB       /usr/bin/arm-linux-gnueabihf-ranlib)
+
 # 说明：Debian 交叉编译器的 sysroot 编译期已内置，由 gcc 自行解析，
 # 不需要也不建议硬编码 CMAKE_SYSROOT。
 # 如需确认实际值：arm-linux-gnueabihf-gcc-8 -print-sysroot

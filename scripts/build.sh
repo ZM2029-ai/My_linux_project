@@ -23,7 +23,8 @@ BUILD_DIR="${BUILD_DIR:-$HOME/build/edgelink}"  # 构建目录（放虚拟机本
 BUILD_MOUNT="${CHROOT_DIR}/build"               # chroot 内访问构建产物的路径
 OUT_DIR="${OUT_DIR:-$HOME/edgelink-bin}"        # 产物取回目录
 JOBS="${JOBS:-2}"                               # 编译并行度（单核板子无关，这里指编译机）
-ENABLE_MQTT="${ENABLE_MQTT:-OFF}"                 # ON 时需要 chroot 内的 armhf libmosquitto-dev
+ENABLE_MQTT="${ENABLE_MQTT:-OFF}"                # ON 需要 libmosquitto-dev:armhf 与 nlohmann-json3-dev
+ENABLE_SQLITE="${ENABLE_SQLITE:-OFF}"            # ON 需要 libsqlite3-dev:armhf
 # -------------------------------
 
 info() { echo "[build] $*"; }
@@ -35,6 +36,7 @@ die()  { echo "[build][错误] $*" >&2; exit 1; }
   || die "chroot 内缺少 GCC 8.3 交叉编译器（复现文档第 5 章）"
 [[ -f "$REPO_DIR/gateway/CMakeLists.txt" ]] || die "找不到 $REPO_DIR/gateway/CMakeLists.txt"
 [[ "$ENABLE_MQTT" == ON || "$ENABLE_MQTT" == OFF ]] || die "ENABLE_MQTT 必须为 ON 或 OFF"
+[[ "$ENABLE_SQLITE" == ON || "$ENABLE_SQLITE" == OFF ]] || die "ENABLE_SQLITE 必须为 ON 或 OFF"
 
 info "源码目录 : $REPO_DIR"
 info "chroot   : $CHROOT_DIR"
@@ -63,6 +65,7 @@ set -e
 cmake -S /work/gateway -B /build \
       -DCMAKE_TOOLCHAIN_FILE=/work/gateway/cmake/toolchain-arm-linux-gnueabihf.cmake \
       -DEDGELINK_ENABLE_MQTT=${ENABLE_MQTT} \
+      -DEDGELINK_ENABLE_SQLITE=${ENABLE_SQLITE} \
       -DCMAKE_BUILD_TYPE=Release
 cmake --build /build -- -j${JOBS}
 "
@@ -71,6 +74,11 @@ cmake --build /build -- -j${JOBS}
 mkdir -p "$OUT_DIR"
 cp "$BUILD_DIR/edgelink" "$OUT_DIR/edgelink"
 chmod +x "$OUT_DIR/edgelink"
+if [[ "$ENABLE_SQLITE" == ON ]]; then
+    cp "$BUILD_DIR/src/storage/edgelink_db" "$OUT_DIR/edgelink_db"
+    chmod +x "$OUT_DIR/edgelink_db"
+    info "查询工具: $OUT_DIR/edgelink_db"
+fi
 
 info "产物: $OUT_DIR/edgelink"
 

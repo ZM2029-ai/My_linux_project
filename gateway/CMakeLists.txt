@@ -11,6 +11,32 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "构建类型" FORCE)
 endif()
 
+option(EDGELINK_ENABLE_SQLITE "构建 SQLite 存储及查询工具" OFF)
+option(EDGELINK_STORAGE_ONLY "只构建 SQLite 模块，不依赖 MQTT 或音频" OFF)
+option(EDGELINK_BUILD_STORAGE_CHECKS "构建 SQLite 存储检查程序" OFF)
+if(EDGELINK_ENABLE_SQLITE OR EDGELINK_STORAGE_ONLY)
+    if(EDGELINK_BUILD_STORAGE_CHECKS)
+        enable_testing()
+    endif()
+    add_subdirectory(src/storage)
+endif()
+if(EDGELINK_STORAGE_ONLY)
+    return()
+endif()
+
+option(EDGELINK_ENABLE_MQTT "构建 MQTT 接收功能" OFF)
+option(EDGELINK_MQTT_ONLY "只构建独立 MQTT 程序，不依赖音频模块" OFF)
+option(EDGELINK_BUILD_MQTT_CHECKS "构建 MQTT 消息与状态检查程序" OFF)
+if(EDGELINK_ENABLE_MQTT OR EDGELINK_MQTT_ONLY)
+    if(EDGELINK_BUILD_MQTT_CHECKS)
+        enable_testing()
+    endif()
+    add_subdirectory(src/mqtt)
+endif()
+if(EDGELINK_MQTT_ONLY)
+    return()
+endif()
+
 add_executable(edgelink
     src/main.cpp
     src/net/music_receiver.cpp
@@ -25,17 +51,8 @@ target_compile_definitions(edgelink PRIVATE
 # -O2/-g 由构建类型决定，这里只加警告
 target_compile_options(edgelink PRIVATE -Wall -Wextra)
 
-option(EDGELINK_ENABLE_MQTT "构建 MQTT 接收功能" OFF)
 if(EDGELINK_ENABLE_MQTT)
-    find_package(Threads REQUIRED)
-    find_path(MOSQUITTO_INCLUDE_DIR mosquitto.h PATHS /usr/include NO_DEFAULT_PATH)
-    find_library(MOSQUITTO_LIBRARY mosquitto PATHS /usr/lib/arm-linux-gnueabihf NO_DEFAULT_PATH)
-    if(NOT MOSQUITTO_INCLUDE_DIR OR NOT MOSQUITTO_LIBRARY)
-        message(FATAL_ERROR "找不到 armhf libmosquitto 开发文件")
-    endif()
-    target_sources(edgelink PRIVATE src/mqtt/mqtt_client.cpp)
-    target_include_directories(edgelink PRIVATE ${MOSQUITTO_INCLUDE_DIR})
-    target_link_libraries(edgelink PRIVATE ${MOSQUITTO_LIBRARY} Threads::Threads)
+    target_link_libraries(edgelink PRIVATE edgelink_mqtt_core)
     target_compile_definitions(edgelink PRIVATE EDGELINK_ENABLE_MQTT)
 endif()
 

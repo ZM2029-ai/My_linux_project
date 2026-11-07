@@ -114,13 +114,13 @@ int runMusicReceiver(std::uint16_t port)
     int yes = 1;
     // 允许服务重启时尽快重新绑定端口。
     setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-    sockaddr_in address{};
+    sockaddr_in address{};//{}代表初始化，清0
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_ANY);
-    address.sin_port = htons(port);
+    address.sin_port = htons(port);//端口
     if (bind(server, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0 || listen(server, 1) < 0) {
         std::perror("bind/listen"); close(server); return 1;
-    }
+    }//bind绑定地址，listen监听
     std::cout << "[music] listening on port " << port << std::endl;
     // 每次只处理一个连接，结束后继续等待下一位客户端。
     for (;;) {
