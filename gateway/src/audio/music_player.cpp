@@ -66,9 +66,9 @@ MusicPlayer::MusicPlayer() : impl_(new Impl) {}
 MusicPlayer::~MusicPlayer() { close(); }
 
 // 初始化解码器并打开音频设备，任何失败都会释放已获取的资源。
-bool MusicPlayer::open(const std::string &device) {
+bool MusicPlayer::open(const std::string &device) {//使用MusicPlayer::说明 open 属于 MusicPlayer 这个类，不是全局函数
     close(); impl_->message.clear(); impl_->failed = false;
-    int rc = mpg123_init();
+    int rc = mpg123_init();//return_code检测函数返回值
     if (rc != MPG123_OK) return impl_->fail(std::string("mpg123 init: ") + mpg123_plain_strerror(rc));
     impl_->initialized = true;
     impl_->decoder = mpg123_new(nullptr, &rc);

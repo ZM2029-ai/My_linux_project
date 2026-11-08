@@ -4,7 +4,7 @@
 #include <string>
 
 // 一个实例负责一条 MP3 流；调用方需串行调用各方法。
-class MusicPlayer {
+class MusicPlayer {//类声明
 public://对外接口
     MusicPlayer();
     ~MusicPlayer();
