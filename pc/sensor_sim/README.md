@@ -16,6 +16,8 @@ python sensor_sim.py --host 192.168.7.2 --device-id sensor-01 --interval 5
 
 程序使用 MQTT 3.1.1 和 Paho 2.x 回调接口，联网工作由 Paho 线程处理，主线程按单调时钟安排遥测。设备每 10 秒发布在线心跳，因此即使遥测间隔很长，网关也能识别在线状态。异常断线后自动重连，重连成功后重新发布 online。Ctrl+C 或 SIGTERM 退出时发送 offline，最多等待 2 秒确认，再断开连接并停止网络线程。
 
+模拟器连接及重连后会订阅自己的控制主题。收到合法的 `set_reporting` 后暂停或恢复遥测，在线心跳继续运行，并按 `command_id` 缓存最多 256 条近期响应以处理 QoS 1 重复投递。命令与响应字段见[控制协议](../../protocol/control-command.md)。
+
 先阅读 `SensorSimulator.__init__`（配置与回调），再看 `on_connect` / `on_disconnect`，最后看 `run`（上报循环和退出）。
 
 本地无网络检查：

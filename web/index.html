@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EdgeLink 设备管理</title>
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<header><h1>EdgeLink</h1><p>设备管理</p></header>
+<main>
+<section id="overview"><h2>设备列表</h2><p id="list-message" role="status">加载中…</p><div id="devices" class="devices"></div></section>
+<section id="detail" hidden>
+<a href="/">← 返回设备列表</a><h2 id="device-name"></h2><p id="detail-message" role="status">加载中…</p><div id="device-info"></div>
+<section id="control-panel" hidden><h3>遥测控制</h3><button id="pause-reporting" type="button">暂停遥测</button> <button id="resume-reporting" type="button">恢复遥测</button><p id="control-message" role="status"></p></section>
+<h3>历史遥测</h3><p>时间按北京时间查询，包含开始时间，不包含结束时间。</p>
+<form id="history-form"><label>开始时间<input id="start" type="datetime-local" step="1" required></label><label>结束时间<input id="end" type="datetime-local" step="1" required></label><button>查询</button></form>
+<p id="history-message" role="status"></p><div id="charts"></div>
+</section>
+</main>
+</body></html>

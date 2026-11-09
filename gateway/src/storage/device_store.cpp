@@ -278,6 +278,18 @@ bool DeviceStore::rename(const std::string &deviceId, const std::string &name, c
     return true;
 }
 
+void DeviceStore::recordOperation(const std::string &deviceId, const std::string &occurredAt,
+                                 const std::string &operation, const std::string &detail)
+{
+    validateDeviceId(deviceId);
+    validateTimestamp(occurredAt);
+    if (operation.empty() || operation.size() > 32 || detail.size() > 2048)
+        throw std::invalid_argument("invalid operation log fields");
+    Transaction transaction(db_.get());
+    logOperation(db_.get(), deviceId, occurredAt, operation, detail);
+    transaction.commit();
+}
+
 bool DeviceStore::find(const std::string &deviceId, StoredDevice &result) const
 {
     validateDeviceId(deviceId);
@@ -302,13 +314,26 @@ std::vector<StoredDevice> DeviceStore::list() const
     return devices;
 }
 
+bool DeviceStore::latest(const std::string &deviceId, StoredTelemetry &result) const
+{
+    validateDeviceId(deviceId);
+    Statement query(db_.get(), R"sql(
+        SELECT id, sampled_at, received_at, temperature_c, humidity_percent
+        FROM telemetry WHERE device_id = ? ORDER BY sampled_at DESC, id DESC LIMIT 1
+    )sql", "query latest telemetry");
+    query.bind(1, deviceId);
+    if (!query.next()) return false;
+    result = {query.integer(0), {query.text(1), query.real(3), query.real(4)}, query.text(2)};
+    return true;
+}
+
 std::vector<StoredTelemetry> DeviceStore::history(const std::string &deviceId, const std::string &start,
                                                   const std::string &end, int limit) const
 {
     validateDeviceId(deviceId);
     validateTimestamp(start);
     validateTimestamp(end);
-    if (start >= end || limit < 1 || limit > 1000) throw std::invalid_argument("invalid history interval or limit");
+    if (start >= end || limit < 1 || limit > 1001) throw std::invalid_argument("invalid history interval or limit");
     Statement query(db_.get(), R"sql(
         SELECT id, sampled_at, received_at, temperature_c, humidity_percent
         FROM telemetry WHERE device_id = ? AND sampled_at >= ? AND sampled_at < ?

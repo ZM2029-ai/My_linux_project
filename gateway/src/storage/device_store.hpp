@@ -36,8 +36,11 @@ public:
     void resetPresence(const std::string &changedAt);
     void updateStatuses(const std::map<std::string, DevicePresence> &statuses, const std::string &changedAt);
     bool rename(const std::string &deviceId, const std::string &name, const std::string &changedAt);
+    void recordOperation(const std::string &deviceId, const std::string &occurredAt,
+                         const std::string &operation, const std::string &detail);
     bool find(const std::string &deviceId, StoredDevice &result) const;
     std::vector<StoredDevice> list() const;
+    bool latest(const std::string &deviceId, StoredTelemetry &result) const;
     // 返回 [start, end) 内的数据，按采样时间和记录 ID 升序排列。
     std::vector<StoredTelemetry> history(const std::string &deviceId, const std::string &start,
                                          const std::string &end, int limit = 100) const;

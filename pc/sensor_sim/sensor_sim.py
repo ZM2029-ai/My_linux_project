@@ -1,6 +1,7 @@
-"""阶段三模拟设备：连接 -> 发布在线/心跳 -> 定时遥测 -> 发布离线。"""
+"""阶段三/六模拟设备：遥测、在线状态和 MQTT 控制命令。"""
 
 import argparse
+from collections import OrderedDict
 import json
 import math
 import random
@@ -20,13 +21,21 @@ def payload(**fields):
 
 class SensorSimulator:
     STATUS_INTERVAL = 10.0
+    MAX_COMMAND_BYTES = 4096
+    MAX_RECENT_COMMANDS = 256
 
     def __init__(self, host, port, device_id, interval):
         self.host, self.port = host, port
         self.prefix = f"edgelink/device/{device_id}"
+        self.command_topic = f"{self.prefix}/command"
+        self.response_topic = f"{self.prefix}/response"
         self.interval = interval
         self.connected = threading.Event()
         self.stopping = threading.Event()
+        self.reporting_lock = threading.Lock()
+        self.reporting_enabled = True
+        self.command_lock = threading.Lock()
+        self.recent_responses = OrderedDict()
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
                                   client_id=device_id, clean_session=True, protocol=mqtt.MQTTv311)
         # 遗嘱的 timestamp 是生成时间，不是实际断线时间。
@@ -36,6 +45,7 @@ class SensorSimulator:
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_connect_fail = self.on_connect_fail
+        self.client.on_message = self.on_message
 
     def publish_status(self, state):
         return self.client.publish(f"{self.prefix}/status", payload(state=state), qos=1, retain=True)
@@ -46,8 +56,83 @@ class SensorSimulator:
             return
         if not self.stopping.is_set():
             self.publish_status("online")
+            rc, mid = client.subscribe(self.command_topic, qos=1)
+            if rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[mqtt] Subscribed to {self.command_topic} (mid={mid})", flush=True)
+            else:
+                print(f"[mqtt] Command subscription failed: {rc}", flush=True)
             self.connected.set()
             print("[mqtt] Connected; online status queued", flush=True)
+
+    def on_message(self, client, userdata, message):
+        if message.topic != self.command_topic:
+            print(f"[command] Ignored message on unexpected topic: {message.topic}", flush=True)
+            return
+        if message.retain or message.qos != 1:
+            print("[command] Ignored retained message or message with unexpected QoS", flush=True)
+            return
+        if len(message.payload) > self.MAX_COMMAND_BYTES:
+            print("[command] Ignored oversized command", flush=True)
+            return
+        try:
+            command = json.loads(message.payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+            print("[command] Ignored invalid UTF-8 JSON", flush=True)
+            return
+
+        command_id = command.get("command_id") if isinstance(command, dict) else None
+        if not isinstance(command_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", command_id):
+            print("[command] Ignored command with invalid command_id", flush=True)
+            return
+
+        with self.command_lock:
+            response = self.recent_responses.get(command_id)
+            if response is not None:
+                self.recent_responses.move_to_end(command_id)
+            else:
+                enabled, error = self.parse_command(command)
+                if error:
+                    response = payload(command_id=command_id, success=False, message=error)
+                else:
+                    with self.reporting_lock:
+                        self.reporting_enabled = enabled
+                    state = "enabled" if enabled else "disabled"
+                    response = payload(command_id=command_id, success=True,
+                                       message=f"reporting {state}")
+                self.recent_responses[command_id] = response
+                while len(self.recent_responses) > self.MAX_RECENT_COMMANDS:
+                    self.recent_responses.popitem(last=False)
+
+        self.publish_response(response, command_id)
+
+    @staticmethod
+    def parse_command(command):
+        required_fields = {"command_id", "action", "enabled", "timestamp"}
+        if set(command) != required_fields:
+            return None, "invalid command fields"
+        if command["action"] != "set_reporting":
+            return None, "unsupported action"
+        if type(command["enabled"]) is not bool:
+            return None, "enabled must be a boolean"
+        timestamp = command["timestamp"]
+        if not isinstance(timestamp, str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", timestamp):
+            return None, "invalid timestamp"
+        try:
+            datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None, "invalid timestamp"
+        return command["enabled"], None
+
+    def publish_response(self, response, command_id):
+        try:
+            info = self.client.publish(self.response_topic, response, qos=1, retain=False)
+            if info.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[command] Response queued for {command_id}", flush=True)
+            else:
+                print(f"[command] Response not queued for {command_id}: {info.rc}", flush=True)
+        except (RuntimeError, ValueError) as error:
+            print(f"[command] Response not queued for {command_id}: {error}", flush=True)
 
     def on_connect_fail(self, client, userdata):
         print("[mqtt] Cannot reach broker; retrying automatically", flush=True)
@@ -71,14 +156,16 @@ class SensorSimulator:
                     self.publish_status("online")
                     next_status = now + self.STATUS_INTERVAL
                 if now >= next_telemetry:
-                    reading = payload(temperature_c=round(random.uniform(20, 30), 1),
-                                      humidity_percent=round(random.uniform(40, 70), 1))
-                    info = self.client.publish(f"{self.prefix}/telemetry", reading, qos=0)
-                    if info.rc == mqtt.MQTT_ERR_SUCCESS:
-                        print(f"[telemetry] {reading}", flush=True)
-                    else:
-                        print(f"[mqtt] Telemetry not queued: {info.rc}", flush=True)
-                    next_telemetry = now + self.interval
+                    with self.reporting_lock:
+                        if self.reporting_enabled:
+                            reading = payload(temperature_c=round(random.uniform(20, 30), 1),
+                                              humidity_percent=round(random.uniform(40, 70), 1))
+                            info = self.client.publish(f"{self.prefix}/telemetry", reading, qos=0)
+                            if info.rc == mqtt.MQTT_ERR_SUCCESS:
+                                print(f"[telemetry] {reading}", flush=True)
+                            else:
+                                print(f"[mqtt] Telemetry not queued: {info.rc}", flush=True)
+                            next_telemetry = now + self.interval
                 self.stopping.wait(0.1)
         except KeyboardInterrupt:
             print("[mqtt] Stopping", flush=True)

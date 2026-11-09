@@ -59,6 +59,8 @@ REPO_DIR=/mnt/hgfs/demo1 ENABLE_MQTT=ON ENABLE_SQLITE=ON ./scripts/build.sh
 
 历史按北京时间的采样时间过滤，含开始时间，到结束时间之前截止。查询默认返回 100 条，上限 1000 条，同秒记录按写入顺序排列。重启保留设备资料、遥测和操作记录，当前在线状态由本次会话重新确认。写入失败会记录原因，失败的遥测样本会丢失。网关会继续处理后续上报，并重试同步已注册设备的当前状态。
 
+启用阶段六 HTTP 控制时，增加 `-DEDGELINK_ENABLE_CONTROL=ON`，并为 `edgelink_http` 配置只允许所有者读取的账号文件和浏览器 Origin。接口、启动参数和账号文件格式见 [HTTP API 约定](../protocol/http-api.md)。控制服务运行在 HTTP 进程中，通过 MQTT 发布启停命令并记录回执审计。
+
 ## 手动构建（不经脚本）
 
 ```bash

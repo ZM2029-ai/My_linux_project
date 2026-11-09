@@ -24,7 +24,12 @@ public:
     std::vector<DeviceSnapshot> snapshot() const;
     const DeviceSnapshot *find(const std::string &deviceId) const;
 private:
-    struct Entry { DeviceSnapshot data; Clock::time_point last_live; bool live_seen = false; };
+    struct Entry {
+        DeviceSnapshot data;
+        Clock::time_point last_live;
+        Clock::time_point last_seen;
+        bool live_seen = false;
+    };
     std::size_t capacity_;
     std::map<std::string, Entry> devices_;
 };

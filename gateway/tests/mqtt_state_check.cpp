@@ -39,6 +39,14 @@ int main()
         require(registry.snapshot()[0].presence == DevicePresence::Offline, "offline state not stored");
         message.device_id = "b"; require(registry.apply(message, now), "second device rejected");
         message.device_id = "c"; require(!registry.apply(message, now), "capacity not enforced");
+        require(registry.apply(message, now + std::chrono::seconds(61)), "silent entry not reclaimed");
+        require(registry.find("c") != nullptr && registry.snapshot().size() == 2, "invalid reclaimed registry");
+
+        DeviceRegistry activeRegistry(1);
+        require(parseDeviceMessage("edgelink/device/a/telemetry", telemetry, false, message, error), "valid telemetry rejected");
+        require(activeRegistry.apply(message, now), "active device not stored");
+        message.device_id = "b";
+        require(!activeRegistry.apply(message, now + std::chrono::seconds(61)), "online device displaced");
 
         require(!parseDeviceMessage("edgelink/device/bad.id/status", status, false, message, error), "bad ID accepted");
         require(!parseDeviceMessage("edgelink/device/a/status/extra", status, false, message, error), "extra topic level accepted");

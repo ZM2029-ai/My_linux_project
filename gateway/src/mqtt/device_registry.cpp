@@ -4,11 +4,24 @@ bool DeviceRegistry::apply(const DeviceMessage &message, Clock::time_point now)
 {
     auto found = devices_.find(message.device_id);
     if (found == devices_.end()) {
-        if (devices_.size() >= capacity_) return false;
+        if (devices_.size() >= capacity_) {
+            // Reclaim only a silent, non-online entry; active devices must not be
+            // displaced by a stream of new device IDs.
+            auto oldest = devices_.end();
+            for (auto it = devices_.begin(); it != devices_.end(); ++it) {
+                if (it->second.data.presence == DevicePresence::Online ||
+                    now - it->second.last_seen < std::chrono::seconds(60)) continue;
+                if (oldest == devices_.end() || it->second.last_seen < oldest->second.last_seen)
+                    oldest = it;
+            }
+            if (oldest == devices_.end()) return false;
+            devices_.erase(oldest);
+        }
         found = devices_.emplace(message.device_id, Entry{}).first;
         found->second.data.device_id = message.device_id;
     }
     auto &entry = found->second;
+    entry.last_seen = now;
     if (message.kind == MessageKind::Telemetry) {
         entry.data.has_telemetry = true;
         entry.data.temperature_c = message.temperature_c;
