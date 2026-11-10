@@ -11,7 +11,7 @@
 | [mqtt-topics.md](mqtt-topics.md) | 阶段三 | MQTT 主题命名、QoS 和消息方向 |
 | [control-command.md](control-command.md) | 阶段六 | 控制命令载荷、幂等回执和字段校验 |
 | [device-telemetry.md](device-telemetry.md) | 阶段三/四 | 遥测数据字段、类型、单位、时间格式 |
-| `music-stream.md` | 阶段二 | TCP 音乐流的分帧格式（长度/序号/采样参数） |
+| [music-stream.md](music-stream.md) | 阶段二 | TCP 音乐流协议 v2：消息头、类型、载荷及播放结果 |
 | `http-api.md` | 阶段五/六 | REST 查询、控制接口、鉴权与错误码 |
 
 ## 已有的消息主题（阶段三初步设计，待细化）

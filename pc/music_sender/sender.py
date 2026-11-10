@@ -12,7 +12,7 @@ MAX_PAYLOAD = 4096
 
 def send_message(sock, message_type, payload=b"", fragment_size=0):
     """发送一条消息；可将字节拆开发送以辅助测试接收端。"""
-    message = HEADER.pack(b"ELMS", 2, message_type, len(payload)) + payload
+    message = HEADER.pack(b"ELMS", 2, message_type, len(payload)) + payload #使用v2协议作为发送
     size = fragment_size or len(message)
     for offset in range(0, len(message), size):
         sock.sendall(message[offset:offset + size])

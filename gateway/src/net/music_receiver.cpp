@@ -58,7 +58,7 @@ void receiveStream(int fd)
         const unsigned type = header[5];
         const unsigned length = (static_cast<unsigned>(header[6]) << 8) | header[7];
         // 在读取载荷前校验长度和状态，防止越界及非法消息顺序。
-        if (std::memcmp(header, "ELMS", 4) != 0 || header[4] != 2 || length > sizeof(payload) ||
+        if (std::memcmp(header, "ELMS", 4) != 0 || header[4] != 2 || length > sizeof(payload) ||//使用v2协议，长度不能超过payload缓冲区大小
             (!started && (type != 1 || length != 3)) ||
             (started && !((type == 2 && length > 0) || (type == 3 && length == 0 && hasData)))) {
             std::cerr << "[music] invalid message\n";
